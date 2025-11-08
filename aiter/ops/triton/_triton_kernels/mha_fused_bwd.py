@@ -316,6 +316,7 @@ def _bwd_kernel_dkdvdq_causal(
     BLOCK_D_MODEL_POW2: tl.constexpr,
     ENABLE_DROPOUT: tl.constexpr,
     IS_VARLEN: tl.constexpr,
+    NUM_SMS: tl.constexpr,
     USE_INT64_STRIDES: tl.constexpr,
     NUM_XCD: tl.constexpr,
 ):
@@ -676,6 +677,7 @@ def _bwd_kernel_dkdvdq_noncausal(
     BLOCK_D_MODEL_POW2: tl.constexpr,
     ENABLE_DROPOUT: tl.constexpr,
     IS_VARLEN: tl.constexpr,
+    NUM_SMS: tl.constexpr,
     USE_INT64_STRIDES: tl.constexpr,
 ):
     if USE_INT64_STRIDES:

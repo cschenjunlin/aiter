@@ -100,9 +100,6 @@ def _flash_attn_forward(
     assert (pe_head_dim == 0 and BLOCK_DMODEL_PE_POW2 == 0) or (
         v_head_dim == BLOCK_DMODEL_POW2 and pe_head_dim == BLOCK_DMODEL_PE_POW2
     ), "Positional encoding support requires NOPE and PE head sizes to be unpadded powers of 2."
-    assert (not IS_FP8) or (
-        IS_FP8 and pe_head_dim == 0
-    ), "Positional encoding doesn't support FP8."
 
     # softmax_lse [batch, num_q_heads, seqlen_q]
     if is_varlen:

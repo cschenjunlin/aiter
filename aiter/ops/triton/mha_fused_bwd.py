@@ -6,18 +6,12 @@ import torch
 import triton
 import triton.language as tl  # type: ignore
 
-from _triton_kernels.mha_fused_bwd import (
+from aiter.ops.triton._triton_kernels.mha_fused_bwd import (
     _bwd_preprocess,
     _bwd_kernel_dkdvdq_causal,
     _bwd_kernel_dkdvdq_noncausal,
     _get_config,
 )
-
-
-def safe_tensor(x):
-    if x is None:
-        return jnp.zeros((1,), dtype=jnp.int32)
-    return x
 
 
 def flash_attn_fused_backward(
