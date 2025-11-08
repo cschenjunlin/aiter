@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: MIT
 # Copyright (C) 2024-2025, Advanced Micro Devices, Inc. All rights reserved.
 
-import math
 from typing import Optional, Dict
 import torch
 import triton  # type: ignore
@@ -12,9 +11,6 @@ from aiter.ops.triton._triton_kernels.mha_onekernel_bwd import (
     _bwd_kernel_causal,
     _bwd_kernel_noncausal,
     _get_config,
-)
-from aiter.test_mha_common import (
-    attention_ref,
 )
 
 
@@ -254,97 +250,3 @@ def flash_attn_onekernel_backward(
         )
 
     return dq, dk, dv
-
-
-BATCH_SIZE: int = 1
-SEQ_LEN: int = 128
-NUM_HEADS: int = 16
-HEAD_SIZE: int = 32
-MHA_SHAPE: tuple[int, int, int, int] = (BATCH_SIZE, SEQ_LEN, NUM_HEADS, HEAD_SIZE)
-assert all(dim > 0 for dim in MHA_SHAPE)
-dtype = torch.float32
-
-
-def main(unused_argv):
-    torch.cuda.empty_cache()
-    torch.manual_seed(42)
-
-    q = torch.randn(MHA_SHAPE, device="cuda", dtype=dtype)
-    k = torch.randn(MHA_SHAPE, device="cuda", dtype=dtype)
-    v = torch.randn(MHA_SHAPE, device="cuda", dtype=dtype)
-    q.requires_grad = True
-    k.requires_grad = True
-    v.requires_grad = True
-    bias = None
-
-    do = torch.randn_like(q)
-    dq = torch.zeros_like(q)
-    dk = torch.empty_like(k)
-    dv = torch.empty_like(v)
-    dbias = torch.empty_like(bias) if bias is not None else None
-
-    # configurations
-    softmax_scale = q.shape[-1] ** (-0.5)
-    alibi_slopes = None
-    causal = True
-    cu_seqlens_q = None
-    cu_seqlens_k = None
-    max_seqlen_q = SEQ_LEN
-    max_seqlen_k = SEQ_LEN
-
-    dropout_p = 0.0
-    if dropout_p > 0.0:
-        dropout_mask = sd_mask >= 0
-    else:
-        dropout_mask = None
-
-    # reference attention_fwd
-    with torch.enable_grad():
-        out, attn, lse = attention_ref(
-            q, k, v,
-            dropout_p=dropout_p,
-            dropout_mask=dropout_mask,
-            causal=causal,
-        )
-
-    # reference attention_bwd
-    torch_dq, torch_dk, torch_dv = torch.autograd.grad(
-        out, (q, k, v), do
-    )
-
-    # triton attention_bwd
-    with torch.enable_grad():
-        triton_dq, triton_dk, triton_dv = flash_attn_onekernel_backward(
-            do,
-            q, k, v,
-            out, lse,
-            dq, dk, dv,
-            dbias,
-            softmax_scale,
-            alibi_slopes,
-            causal,
-            None,
-            None,
-            max_seqlen_q=q.shape[1],
-            max_seqlen_k=k.shape[1],
-            dropout_p=dropout_p,
-            # philox_seed=philox_seed,
-            # philox_offset=philox_offset,
-            # USE_INT64_STRIDES=_USE_INT64_STRIDES,
-        )
-
-    # numeric check
-    torch.testing.assert_close(
-        triton_dq, torch_dq.to(out.dtype), atol=1e-2, rtol=1e-2
-    )
-    torch.testing.assert_close(
-        triton_dk, torch_dk.to(out.dtype), atol=1e-2, rtol=1e-2
-    )
-    torch.testing.assert_close(
-        triton_dv, torch_dv.to(out.dtype), atol=1e-2, rtol=1e-2
-    )
-
-
-if __name__ == "__main__":
-    from absl import app
-    app.run(main)
