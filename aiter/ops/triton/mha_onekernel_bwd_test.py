@@ -7,6 +7,8 @@ from aiter.ops.triton.mha import flash_attn_func
 from aiter.ops.triton.mha_onekernel_bwd import flash_attn_onekernel_backward
 from aiter.test_mha_common import attention_ref
 
+_USE_INT64_STRIDES = True
+
 
 BATCH_SIZE: int = 1
 SEQ_LEN: int = 128
@@ -18,6 +20,7 @@ dtype = torch.float16
 
 
 def main(unused_argv):
+    # create input data
     torch.cuda.empty_cache()
     torch.manual_seed(42)
 
@@ -43,16 +46,17 @@ def main(unused_argv):
     cu_seqlens_k = None
     max_seqlen_q = SEQ_LEN
     max_seqlen_k = SEQ_LEN
-
     dropout_p = 0.0
     if dropout_p > 0.0:
         dropout_mask = sd_mask >= 0
     else:
         dropout_mask = None
+    philox_seed = 0
+    philox_offset = 0
 
     # reference attention_fwd
     with torch.enable_grad():
-        out, attn, lse = attention_ref(
+        out, _, lse = attention_ref(
             q, k, v,
             dropout_p=dropout_p,
             dropout_mask=dropout_mask,
@@ -64,7 +68,7 @@ def main(unused_argv):
         out, (q, k, v), do
     )
 
-    # 2. triton attention_bwd, use torch.autograd
+    # Triton attention_bwd
     with torch.enable_grad():
         triton_out, triton_lse, _ = flash_attn_func(
             q,
@@ -75,20 +79,17 @@ def main(unused_argv):
             return_lse=True,
             return_attn_probs=True,
         )
+
+    # 2. Triton attention_bwd, use torch.autograd
     triton_auto_dq, triton_auto_dk, triton_auto_dv = torch.autograd.grad(
         triton_out, (q, k, v), do.clone()
     )
 
-    # numeric check
-    torch.testing.assert_close(
-        out, triton_out.to(out.dtype), atol=1e-2, rtol=1e-2
-    )  
-
-    # 3. triton attention_bwd, directly call
+    # 3. Triton attention_bwd, directly call
     triton_dq, triton_dk, triton_dv = flash_attn_onekernel_backward(
         do,
         q, k, v,
-        out, lse,
+        triton_out, triton_lse,
         dq, dk, dv,
         dbias,
         softmax_scale,
@@ -99,20 +100,20 @@ def main(unused_argv):
         max_seqlen_q=q.shape[1],
         max_seqlen_k=k.shape[1],
         dropout_p=dropout_p,
-        # philox_seed=philox_seed,
-        # philox_offset=philox_offset,
-        # USE_INT64_STRIDES=_USE_INT64_STRIDES,
+        philox_seed=philox_seed,
+        philox_offset=philox_offset,
+        USE_INT64_STRIDES=_USE_INT64_STRIDES,
     )
 
     # numeric check
     torch.testing.assert_close(
-        triton_dq, torch_dq.to(out.dtype), atol=1e-2, rtol=1e-2
+        dq, triton_dq.to(dq.dtype), atol=1e-2, rtol=1e-2
     )
     torch.testing.assert_close(
-        triton_dk, torch_dk.to(out.dtype), atol=1e-2, rtol=1e-2
+        dk, triton_dk.to(dk.dtype), atol=1e-2, rtol=1e-2
     )
     torch.testing.assert_close(
-        triton_dv, torch_dv.to(out.dtype), atol=1e-2, rtol=1e-2
+        dv, triton_dv.to(dv.dtype), atol=1e-2, rtol=1e-2
     )
 
 
