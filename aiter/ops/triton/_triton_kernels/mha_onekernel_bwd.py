@@ -22,18 +22,18 @@ tl_DROPOUT_DUMP: tl.constexpr = triton.language.constexpr(DROPOUT_DUMP)
 # Delta: (batch, nheads_q, max_seqlens_q), same as softmax_lse defined at
 @triton.jit
 def _bwd_preprocess(
+    # Input tensors
     o_ptr,
     do_ptr,  # noqa: E741
+    # Output tensors
     delta_ptr,
-    stride_o_b,
-    stride_o_h,
-    stride_o_m,
-    stride_o_k,
-    stride_delta_b,
-    stride_delta_h,
-    stride_delta_m,
+    # Strides
+    stride_o_b, stride_o_h, stride_o_m, stride_o_k,
+    stride_delta_b, stride_delta_h, stride_delta_m,
+    # Configurations
     cu_seqlens_q,
     max_seqlen_q,
+    # Meta-parameters
     BLOCK_M: tl.constexpr,
     BLOCK_D_MODEL: tl.constexpr,
     BLOCK_D_MODEL_POW2: tl.constexpr,
@@ -93,9 +93,11 @@ def _bwd_preprocess(
 # The main inner-loop logic for computing dK and dV.
 @triton.jit
 def _bwd_dkdv_inner(
-    dk,  # output
+    # Output tensors
+    dk,
     dk_pe,  # optional output, pass None for non-PE case
-    dv,  # output
+    dv,
+    # Input tensors
     Q,
     k,
     k_pe,
@@ -103,14 +105,13 @@ def _bwd_dkdv_inner(
     DO,
     M,
     D,
-    sm_scale,  # input tensor
-    stride_qm,
-    stride_qk,
-    stride_dom,
-    stride_dok,
-    stride_dropoutm,
-    stride_dropoutn,
+    sm_scale,
+    # Strides
+    stride_qm, stride_qk,
+    stride_dom, stride_dok,
+    stride_dropoutm, stride_dropoutn,
     stride_deltam,
+    # Configurations
     BLOCK_M: tl.constexpr,  # 16
     BLOCK_N: tl.constexpr,  # 128
     HEAD_DIM: tl.constexpr,  #
@@ -264,8 +265,10 @@ def _bwd_dkdv_inner(
 # the main inner-loop logic for computing dQ
 @triton.jit
 def _bwd_dq_inner(
-    dq,  # output
+    # Output tensors
+    dq,
     dq_pe,  # optional output, pass None for non-PE case
+    # Input tensors
     q,
     q_pe,
     K,
@@ -273,17 +276,15 @@ def _bwd_dq_inner(
     do,
     m,
     Delta,
-    sm_scale,  # input
+    sm_scale,
     # shared by Q/K/V.
-    stride_qm,
-    stride_qk,
-    stride_kn,
-    stride_kk,
-    stride_vn,
-    stride_vk,
-    stride_dropoutm,
-    stride_dropoutn,  # stride for dropout
+    # Strides
+    stride_qm, stride_qk,
+    stride_kn, stride_kk,
+    stride_vn, stride_vk,
+    stride_dropoutm, stride_dropoutn,
     stride_deltam,
+    # Configurations
     seqlen_q,
     seqlen_k,  #
     BLOCK_M2: tl.constexpr,  #
@@ -709,9 +710,11 @@ def _bwd_kernel_causal(  # grid = (tl.cdiv(max_seqlen_q // BLOCK_M2), batch, nhe
                     f"Masked: start_n: {start_n}; start_m: {start_m}, num_steps: {num_steps}"
                 )  # noqa: E701
             dk, dk_pe, dv = _bwd_dkdv_inner(
-                dk,  # output tensor
+                # Output tensors
+                dk,
                 dk_pe,  # optional output tensor
-                dv,  # output tensor
+                dv,
+                # Input tensors
                 Q_ptr,
                 k,
                 k_pe,
@@ -719,14 +722,13 @@ def _bwd_kernel_causal(  # grid = (tl.cdiv(max_seqlen_q // BLOCK_M2), batch, nhe
                 DO_ptr,
                 M_ptr,
                 Delta_ptr,
-                sm_scale,  # input tensors
-                stride_qm,
-                stride_qd,  # strides for q
-                stride_dom,
-                stride_dod,  # strides for o
-                stride_dropoutm,
-                stride_dropoutn,  # strides for dropout
+                sm_scale,
+                # Strides
+                stride_qm, stride_qd,
+                stride_dom, stride_dod,
+                stride_dropoutm, stride_dropoutn,
                 stride_deltam,
+                # Configurations
                 MASK_BLOCK_M1,
                 BLOCK_N1,  # block dim
                 HEAD_DIM,
@@ -764,9 +766,11 @@ def _bwd_kernel_causal(  # grid = (tl.cdiv(max_seqlen_q // BLOCK_M2), batch, nhe
             if DEBUG_TRITON:
                 print("unMasked")  # noqa: E701
             dk, dk_pe, dv = _bwd_dkdv_inner(
-                dk,  # output tensor
+                # Output tensors
+                dk,
                 dk_pe,  # optional output tensor
-                dv,  # output tensor
+                dv,
+                # Input tensors
                 Q_ptr,
                 k,
                 k_pe,
@@ -774,14 +778,13 @@ def _bwd_kernel_causal(  # grid = (tl.cdiv(max_seqlen_q // BLOCK_M2), batch, nhe
                 DO_ptr,
                 M_ptr,
                 Delta_ptr,
-                sm_scale,  # input tensors
-                stride_qm,
-                stride_qd,  # strides for q
-                stride_dom,
-                stride_dod,  # strides for o
-                stride_dropoutm,
-                stride_dropoutn,  # strides for dropout
+                sm_scale,
+                # Strides
+                stride_qm, stride_qd,
+                stride_dom, stride_dod,
+                stride_dropoutm, stride_dropoutn,
                 stride_deltam,
+                # Configurations
                 BLOCK_M1,
                 BLOCK_N1,  # block dim
                 HEAD_DIM,
@@ -902,8 +905,10 @@ def _bwd_kernel_causal(  # grid = (tl.cdiv(max_seqlen_q // BLOCK_M2), batch, nhe
             else:
                 dq_pe = dq  # Couldn't assign None to dq_pe because _bwd_dq_inner can't return None.
             dq, dq_pe = _bwd_dq_inner(
-                dq,  # output tensor
+                # Output tensors
+                dq,
                 dq_pe,  # optional output tensor
+                # Input tensors
                 q,
                 q_pe,
                 K,
@@ -912,15 +917,13 @@ def _bwd_kernel_causal(  # grid = (tl.cdiv(max_seqlen_q // BLOCK_M2), batch, nhe
                 m,
                 Delta_ptr,
                 sm_scale,
-                stride_qm,
-                stride_qd,
-                stride_kn,
-                stride_kd,
-                stride_vn,
-                stride_vd,
-                stride_dropoutm,
-                stride_dropoutn,
+                # Strides
+                stride_qm, stride_qd,
+                stride_kn, stride_kd,
+                stride_vn, stride_vd,
+                stride_dropoutm, stride_dropoutn,
                 stride_deltam,
+                # Configurations
                 seqlen_q,
                 seqlen_k,
                 BLOCK_M2,
@@ -952,8 +955,10 @@ def _bwd_kernel_causal(  # grid = (tl.cdiv(max_seqlen_q // BLOCK_M2), batch, nhe
                     f"unMasked: start_m: {start_m}, start_n: {start_n}, end_n: {end_n}, num_steps: {num_steps}"
                 )  # noqa: E701
             dq, dq_pe = _bwd_dq_inner(
-                dq,  # output tensor
+                # Output tensors
+                dq,
                 dq_pe,  # optional output tensor
+                # Input tensors
                 q,
                 q_pe,
                 K,
@@ -962,15 +967,13 @@ def _bwd_kernel_causal(  # grid = (tl.cdiv(max_seqlen_q // BLOCK_M2), batch, nhe
                 m,
                 Delta_ptr,
                 sm_scale,
-                stride_qm,
-                stride_qd,
-                stride_kn,
-                stride_kd,
-                stride_vn,
-                stride_vd,
-                stride_dropoutm,
-                stride_dropoutn,
+                # Strides
+                stride_qm, stride_qd,
+                stride_kn, stride_kd,
+                stride_vn, stride_vd,
+                stride_dropoutm, stride_dropoutn,
                 stride_deltam,
+                # Configurations
                 seqlen_q,
                 seqlen_k,
                 BLOCK_M2,
@@ -1246,9 +1249,11 @@ def _bwd_kernel_noncausal(
             start_m = 0
             num_steps = tl.cdiv(seqlen_q, BLOCK_M1)
             dk, dk_pe, dv = _bwd_dkdv_inner(
-                dk,  # output tensor
+                # Output tensors
+                dk,
                 dk_pe,  # optional output tensor
-                dv,  # output tensor
+                dv,
+                # Input tensors
                 Q_ptr,
                 k,
                 k_pe,
@@ -1256,11 +1261,13 @@ def _bwd_kernel_noncausal(
                 DO_ptr,
                 M_ptr,
                 Delta_ptr,
-                sm_scale,  # input tensors
+                sm_scale,
+                # Strides
                 stride_qm, stride_qd,  # strides for q
                 stride_dom, stride_dod,  # strides for o
                 stride_dropoutm, stride_dropoutn,  # strides for dropout
                 stride_deltam,
+                # Configurations
                 BLOCK_M1,
                 BLOCK_N1,  # block dim
                 HEAD_DIM,
@@ -1361,8 +1368,10 @@ def _bwd_kernel_noncausal(
             else:
                 dq_pe = dq  # Couldn't assign None to dq_pe because _bwd_dq_inner can't return None.
             dq, dq_pe = _bwd_dq_inner(
-                dq,  # output tensor
+                # Output tensors
+                dq,
                 dq_pe,  # optional output tensor
+                # Input tensors
                 q,
                 q_pe,
                 K,
@@ -1371,11 +1380,13 @@ def _bwd_kernel_noncausal(
                 m,
                 Delta_ptr,
                 sm_scale,
+                # Strides
                 stride_qm, stride_qd,
                 stride_kn, stride_kd,
                 stride_vn, stride_vd,
                 stride_dropoutm, stride_dropoutn,
                 stride_deltam,
+                # Configurations
                 seqlen_q,
                 seqlen_k,
                 BLOCK_M2,
