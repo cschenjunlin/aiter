@@ -68,7 +68,7 @@ def main(unused_argv):
         out, (q, k, v), do
     )
 
-    # Triton attention_bwd
+    # Triton attention_fwd
     with torch.enable_grad():
         triton_out, triton_lse, _ = flash_attn_func(
             q,

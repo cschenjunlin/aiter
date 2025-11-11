@@ -3,19 +3,12 @@
 
 import torch
 import pytest
-import logging
-import numpy as np
 from aiter.ops.triton.mha import (
     flash_attn_func,
     mha_set_use_fused_bwd_kernel,
 )
-from aiter.test_mha_common import (
-    attention_ref,
-    generate_qkv,
-)
+from aiter.test_mha_common import attention_ref
 
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__)
 DEBUG_MODE = False
 
 
