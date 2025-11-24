@@ -40,7 +40,6 @@ def main(unused_argv):
 
     # configurations
     softmax_scale = q.shape[-1] ** (-0.5)
-    alibi_slopes = None
     causal = True
     cu_seqlens_q = None
     cu_seqlens_k = None
@@ -93,7 +92,6 @@ def main(unused_argv):
         dq, dk, dv,
         dbias,
         softmax_scale,
-        alibi_slopes,
         causal,
         None,
         None,
