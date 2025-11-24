@@ -115,6 +115,7 @@ def main(unused_argv):
     torch.testing.assert_close(
         dv, triton_dv.to(dv.dtype), atol=1e-2, rtol=1e-2
     )
+    print("Test passed!")
 
 
 if __name__ == "__main__":

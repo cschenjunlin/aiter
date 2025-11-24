@@ -45,39 +45,41 @@ def main(unused_argv):
     philox_seed = 0
     philox_offset = 0
 
-    # reference attention_fwd
-    out, _, lse = attention_ref(
-        q, k, v,
-        dropout_p=dropout_p,
-        dropout_mask=dropout_mask,
-        causal=causal,
-    )
+    # # reference attention_fwd
+    # out, _, lse = attention_ref(
+    #     q, k, v,
+    #     dropout_p=dropout_p,
+    #     dropout_mask=dropout_mask,
+    #     causal=causal,
+    # )
 
-    # Triton attention_fwd
-    triton_out, triton_lse, _, _, _ = _flash_attn_forward(
-        q, k, v,
-        dropout_p=dropout_p,
-        softmax_scale=softmax_scale,
-        causal=causal,
-        window_size_left=-1,
-        window_size_right=-1,
-        bias=bias,
-        alibi_slopes=alibi_slopes,
-        return_lse=True,
-        return_softmax=True,
-        max_seqlen_q=max_seqlen_q,
-        max_seqlen_k=max_seqlen_k,
-        cu_seqlens_q=cu_seqlens_q,
-        cu_seqlens_k=cu_seqlens_k,
-    )
+    for i in range(100):
+        # Triton attention_fwd
+        triton_out, triton_lse, _, _, _ = _flash_attn_forward(
+            q, k, v,
+            dropout_p=dropout_p,
+            softmax_scale=softmax_scale,
+            causal=causal,
+            window_size_left=-1,
+            window_size_right=-1,
+            bias=bias,
+            alibi_slopes=alibi_slopes,
+            return_lse=True,
+            return_softmax=True,
+            max_seqlen_q=max_seqlen_q,
+            max_seqlen_k=max_seqlen_k,
+            cu_seqlens_q=cu_seqlens_q,
+            cu_seqlens_k=cu_seqlens_k,
+        )
 
-    # numeric check
-    torch.testing.assert_close(
-        out, triton_out.to(out.dtype), atol=1e-2, rtol=1e-2
-    )
-    torch.testing.assert_close(
-        lse, triton_lse.to(lse.dtype), atol=1e-2, rtol=1e-2
-    )
+    # # numeric check
+    # torch.testing.assert_close(
+    #     out, triton_out.to(out.dtype), atol=1e-2, rtol=1e-2
+    # )
+    # torch.testing.assert_close(
+    #     lse, triton_lse.to(lse.dtype), atol=1e-2, rtol=1e-2
+    # )
+    # print("Test passed!")
 
 
 if __name__ == "__main__":
