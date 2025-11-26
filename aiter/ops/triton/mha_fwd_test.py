@@ -53,24 +53,24 @@ def main(unused_argv):
     #     causal=causal,
     # )
 
-    # for i in range(100):
-    # Triton attention_fwd
-    triton_out, triton_lse, _, _, _ = _flash_attn_forward(
-        q, k, v,
-        dropout_p=dropout_p,
-        softmax_scale=softmax_scale,
-        causal=causal,
-        window_size_left=-1,
-        window_size_right=-1,
-        bias=bias,
-        alibi_slopes=alibi_slopes,
-        return_lse=True,
-        return_softmax=True,
-        max_seqlen_q=max_seqlen_q,
-        max_seqlen_k=max_seqlen_k,
-        cu_seqlens_q=cu_seqlens_q,
-        cu_seqlens_k=cu_seqlens_k,
-    )
+    for i in range(100):
+        # Triton attention_fwd
+        triton_out, triton_lse, _, _, _ = _flash_attn_forward(
+            q, k, v,
+            dropout_p=dropout_p,
+            softmax_scale=softmax_scale,
+            causal=causal,
+            window_size_left=-1,
+            window_size_right=-1,
+            bias=bias,
+            alibi_slopes=alibi_slopes,
+            return_lse=True,
+            return_softmax=True,
+            max_seqlen_q=max_seqlen_q,
+            max_seqlen_k=max_seqlen_k,
+            cu_seqlens_q=cu_seqlens_q,
+            cu_seqlens_k=cu_seqlens_k,
+        )
 
     # # numeric check
     # torch.testing.assert_close(
