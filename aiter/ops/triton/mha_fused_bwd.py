@@ -26,6 +26,7 @@ def flash_attn_fused_backward(
     dv: torch.Tensor,
     dbias: torch.Tensor,
     sm_scale: float,
+    alibi_slopes: Optional[torch.Tensor],
     causal: bool,
     cu_seqlens_q: Optional[torch.Tensor],
     cu_seqlens_k: Optional[torch.Tensor],

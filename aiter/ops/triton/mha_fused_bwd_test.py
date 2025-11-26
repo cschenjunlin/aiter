@@ -3,10 +3,11 @@
 
 import torch
 
-from aiter.ops.triton.mha import flash_attn_func
+from aiter.ops.triton.mha import flash_attn_func, mha_set_use_fused_bwd_kernel
 from aiter.ops.triton.mha_fused_bwd import flash_attn_fused_backward
 from aiter.test_mha_common import attention_ref
 
+mha_set_use_fused_bwd_kernel(True)
 _USE_INT64_STRIDES = True
 
 
@@ -40,6 +41,7 @@ def main(unused_argv):
 
     # configurations
     softmax_scale = q.shape[-1] ** (-0.5)
+    alibi_slopes = None
     causal = True
     cu_seqlens_q = None
     cu_seqlens_k = None
@@ -93,6 +95,7 @@ def main(unused_argv):
     #     dq, dk, dv,
     #     dbias,
     #     softmax_scale,
+    #     alibi_slopes,
     #     causal,
     #     None,
     #     None,
