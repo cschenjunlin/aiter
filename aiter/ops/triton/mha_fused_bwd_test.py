@@ -42,7 +42,7 @@ def main(unused_argv):
     # configurations
     softmax_scale = q.shape[-1] ** (-0.5)
     alibi_slopes = None
-    causal = True
+    causal = False
     cu_seqlens_q = None
     cu_seqlens_k = None
     max_seqlen_q = SEQ_LEN
